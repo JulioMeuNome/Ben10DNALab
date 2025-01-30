@@ -1188,13 +1188,76 @@
                 }
 
                 async function download() {
-                    const a = document.createElement("a");
-                    a.href = await toDataURL(PrimusDB[newInput1.value][newInput2.value] + ".png");
-                    a.download = "";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }
+                    const imageUrl = PrimusDB[newInput1.value][newInput2.value] + ".png";
+                    const image = new Image();
+                
+                    image.crossOrigin = "Anonymous"; // Permite carregar imagens de outras origens
+                    image.src = imageUrl;
+                
+                    image.onload = () => {
+                        const canvas = document.createElement("canvas");
+                        const ctx = canvas.getContext("2d");
+                
+                        canvas.width = image.width;
+                        canvas.height = image.height;
+                        ctx.drawImage(image, 0, 0);
+                
+                        // Obter os dados da imagem
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imageData.data;
+                
+                        let top = canvas.height, left = canvas.width, right = 0, bottom = 0;
+                
+                        // Encontrar os limites não transparentes
+                        for (let y = 0; y < canvas.height; y++) {
+                            for (let x = 0; x < canvas.width; x++) {
+                                const index = (y * canvas.width + x) * 4;
+                                const alpha = data[index + 3];
+                
+                                if (alpha > 0) { // Pixel não transparente
+                                    if (x < left) left = x;
+                                    if (x > right) right = x;
+                                    if (y < top) top = y;
+                                    if (y > bottom) bottom = y;
+                                }
+                            }
+                        }
+                
+                        // Dimensões do novo corte
+                        const croppedWidth = right - left + 1;
+                        const croppedHeight = bottom - top + 1;
+                
+                        // Criar um novo canvas com a imagem cortada
+                        const croppedCanvas = document.createElement("canvas");
+                        const croppedCtx = croppedCanvas.getContext("2d");
+                        croppedCanvas.width = croppedWidth;
+                        croppedCanvas.height = croppedHeight;
+                
+                        croppedCtx.drawImage(
+                            canvas,
+                            left, top, croppedWidth, croppedHeight,
+                            0, 0, croppedWidth, croppedHeight
+                        );
+                
+                        // Remover os canvas da tela após o processamento
+                        canvas.remove();
+                
+                        // Baixar a imagem cortada
+                        croppedCanvas.toBlob(blob => {
+                            const a = document.createElement("a");
+                            a.href = URL.createObjectURL(blob);
+                            a.download = "";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            croppedCanvas.remove(); // Remover o croppedCanvas após o download
+                        }, "image/png");
+                    };
+                
+                    image.onerror = () => {
+                        console.error("Erro ao carregar a imagem.");
+                    };
+                }       
 
                 downloadandprint.onclick = function() {
                     download();
